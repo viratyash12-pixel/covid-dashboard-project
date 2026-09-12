@@ -1,0 +1,553 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>COVID-19 Global Dashboard</title>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.5.1" integrity="sha384-jb8JQMbMoBUzgWatfe6COACi2ljcDdZQ2OxczGA3bGNeWe+6DChMTBJemed7ZnvJ" crossorigin="anonymous"></script>
+<style>
+:root {
+    --bg-primary: #f8f9fa;
+    --bg-card: #ffffff;
+    --bg-header: #0f2942;
+    --text-primary: #212529;
+    --text-secondary: #6c757d;
+    --text-on-dark: #ffffff;
+    --color-1: #4C72B0;
+    --color-2: #DD8452;
+    --color-3: #55A868;
+    --color-4: #C44E52;
+    --color-5: #8172B3;
+    --color-6: #937860;
+    --color-7: #64B5CD;
+    --color-8: #CCB974;
+    --positive: #28a745;
+    --negative: #dc3545;
+    --neutral: #6c757d;
+    --gap: 16px;
+    --radius: 10px;
+}
+* { margin:0; padding:0; box-sizing:border-box; }
+body {
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+    background: var(--bg-primary);
+    color: var(--text-primary);
+    line-height: 1.5;
+}
+.dashboard-container { max-width: 1400px; margin: 0 auto; padding: var(--gap); }
+.dashboard-header {
+    background: var(--bg-header);
+    color: var(--text-on-dark);
+    padding: 22px 26px;
+    border-radius: var(--radius);
+    margin-bottom: var(--gap);
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 12px;
+}
+.dashboard-header h1 { font-size: 21px; font-weight: 600; }
+.dashboard-header p { font-size: 12.5px; color: rgba(255,255,255,0.65); margin-top: 3px; }
+.filters { display: flex; gap: 12px; align-items: center; flex-wrap: wrap; }
+.filter-group { display: flex; flex-direction: column; gap: 3px; }
+.filter-group label { font-size: 11px; color: rgba(255,255,255,0.65); text-transform: uppercase; letter-spacing: 0.4px; }
+.filter-group select, .filter-group input[type="date"] {
+    padding: 7px 10px;
+    border: 1px solid rgba(255,255,255,0.25);
+    border-radius: 6px;
+    background: rgba(255,255,255,0.1);
+    color: var(--text-on-dark);
+    font-size: 13px;
+}
+.filter-group select option { background: var(--bg-header); color: var(--text-on-dark); }
+.kpi-row { display: grid; grid-template-columns: repeat(4, 1fr); gap: var(--gap); margin-bottom: var(--gap); }
+.kpi-card { background: var(--bg-card); border-radius: var(--radius); padding: 18px 20px; box-shadow: 0 1px 3px rgba(0,0,0,0.08); }
+.kpi-label { font-size: 12px; color: var(--text-secondary); text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 6px; }
+.kpi-value { font-size: 24px; font-weight: 700; color: var(--text-primary); margin-bottom: 4px; }
+.kpi-change { font-size: 12.5px; font-weight: 500; }
+.kpi-change.positive { color: var(--positive); }
+.kpi-change.negative { color: var(--negative); }
+.kpi-change.neutral { color: var(--neutral); }
+.chart-row { display: grid; grid-template-columns: 2fr 1fr; gap: var(--gap); margin-bottom: var(--gap); }
+.chart-row.secondary { grid-template-columns: 1fr 1fr; }
+.chart-container { background: var(--bg-card); border-radius: var(--radius); padding: 20px 22px; box-shadow: 0 1px 3px rgba(0,0,0,0.08); }
+.chart-container h3 { font-size: 14px; font-weight: 600; color: var(--text-primary); margin-bottom: 16px; }
+.chart-container canvas { max-height: 300px; }
+.table-section { background: var(--bg-card); border-radius: var(--radius); padding: 20px 22px; box-shadow: 0 1px 3px rgba(0,0,0,0.08); overflow-x: auto; }
+.table-section h3 { font-size: 14px; font-weight: 600; margin-bottom: 14px; }
+.data-table { width: 100%; border-collapse: collapse; font-size: 13px; }
+.data-table thead th {
+    text-align: left; padding: 10px 12px; border-bottom: 2px solid #dee2e6;
+    color: var(--text-secondary); font-weight: 600; font-size: 11.5px;
+    text-transform: uppercase; letter-spacing: 0.5px; white-space: nowrap; cursor: pointer; user-select: none;
+}
+.data-table thead th:hover { color: var(--text-primary); background: #f8f9fa; }
+.data-table tbody td { padding: 10px 12px; border-bottom: 1px solid #f0f0f0; }
+.data-table tbody tr:hover { background: #f8f9fa; }
+.data-table tbody tr:last-child td { border-bottom: none; }
+.dashboard-footer { text-align: center; padding: 16px 0 6px; font-size: 12px; color: var(--text-secondary); }
+.note-banner {
+    background: #fff8e1; border: 1px solid #ffe082; color: #7a5c00;
+    padding: 10px 16px; border-radius: 8px; font-size: 12.5px; margin-bottom: var(--gap);
+}
+@media (max-width: 900px) {
+    .kpi-row { grid-template-columns: repeat(2, 1fr); }
+    .chart-row, .chart-row.secondary { grid-template-columns: 1fr; }
+}
+@media print {
+    body { background: white; }
+    .filters { display: none; }
+    .chart-container { break-inside: avoid; }
+    .kpi-card { border: 1px solid #dee2e6; box-shadow: none; }
+}
+</style>
+</head>
+<body>
+<div class="dashboard-container">
+
+    <header class="dashboard-header">
+        <div>
+            <h1>COVID-19 Global Dashboard</h1>
+            <p>Weekly case, death &amp; vaccination tracking &mdash; 10 countries, Jan&ndash;Jun 2021</p>
+        </div>
+        <div class="filters">
+            <div class="filter-group">
+                <label for="filter-continent">Continent</label>
+                <select id="filter-continent" onchange="dashboard.onContinentChange()">
+                    <option value="all">All Continents</option>
+                </select>
+            </div>
+            <div class="filter-group">
+                <label for="filter-location">Country</label>
+                <select id="filter-location" onchange="dashboard.applyFilters()">
+                    <option value="all">All Countries</option>
+                </select>
+            </div>
+            <div class="filter-group">
+                <label>From</label>
+                <input type="date" id="filter-date-start" onchange="dashboard.applyFilters()">
+            </div>
+            <div class="filter-group">
+                <label>To</label>
+                <input type="date" id="filter-date-end" onchange="dashboard.applyFilters()">
+            </div>
+        </div>
+    </header>
+
+    <div class="note-banner">
+        This dashboard runs on <strong>sample data</strong> generated to resemble real COVID-19 reporting patterns (not actual historical figures). Swap in real data by replacing the <code>DATA</code> array in the script tag below with rows shaped like: <code>{location, continent, date, population, new_cases, total_cases, new_deaths, total_deaths, new_vaccinations, total_vaccinations}</code>.
+    </div>
+
+    <section class="kpi-row" id="kpi-row">
+        <div class="kpi-card"><div class="kpi-label">Total Cases</div><div class="kpi-value" id="kpi-cases">0</div><div class="kpi-change neutral" id="kpi-cases-sub">&nbsp;</div></div>
+        <div class="kpi-card"><div class="kpi-label">Total Deaths</div><div class="kpi-value" id="kpi-deaths">0</div><div class="kpi-change neutral" id="kpi-deaths-sub">&nbsp;</div></div>
+        <div class="kpi-card"><div class="kpi-label">Death Rate</div><div class="kpi-value" id="kpi-deathrate">0%</div><div class="kpi-change neutral" id="kpi-deathrate-sub">deaths / cases</div></div>
+        <div class="kpi-card"><div class="kpi-label">% Population Infected</div><div class="kpi-value" id="kpi-infected-pct">0%</div><div class="kpi-change neutral" id="kpi-infected-sub">of tracked population</div></div>
+        <div class="kpi-card"><div class="kpi-label">Total Vaccinations</div><div class="kpi-value" id="kpi-vax">0</div><div class="kpi-change neutral" id="kpi-vax-sub">doses administered</div></div>
+        <div class="kpi-card"><div class="kpi-label">% Population Vaccinated</div><div class="kpi-value" id="kpi-vax-pct">0%</div><div class="kpi-change neutral" id="kpi-vax-pct-sub">of tracked population</div></div>
+        <div class="kpi-card"><div class="kpi-label">Latest Week New Cases</div><div class="kpi-value" id="kpi-new-cases">0</div><div class="kpi-change" id="kpi-new-cases-sub">&nbsp;</div></div>
+        <div class="kpi-card"><div class="kpi-label">Countries Tracked</div><div class="kpi-value" id="kpi-countries">0</div><div class="kpi-change neutral" id="kpi-countries-sub">in current filter</div></div>
+    </section>
+
+    <section class="chart-row">
+        <div class="chart-container">
+            <h3>Weekly New Cases Over Time</h3>
+            <canvas id="chart-trend"></canvas>
+        </div>
+        <div class="chart-container">
+            <h3>Cases by Continent</h3>
+            <canvas id="chart-continent"></canvas>
+        </div>
+    </section>
+
+    <section class="chart-row secondary">
+        <div class="chart-container">
+            <h3>Total Deaths by Country</h3>
+            <canvas id="chart-deaths"></canvas>
+        </div>
+        <div class="chart-container">
+            <h3>% Population Vaccinated by Country</h3>
+            <canvas id="chart-vax"></canvas>
+        </div>
+    </section>
+
+    <section class="table-section">
+        <h3>Country Snapshot (latest week in filtered range)</h3>
+        <div id="table-container"></div>
+    </section>
+
+    <footer class="dashboard-footer">
+        <span>Sample data &mdash; last week in range: <span id="data-date"></span></span>
+    </footer>
+</div>
+
+<script>
+const DATA = [{"location": "United States", "continent": "North America", "date": "2021-01-03", "population": 331000000, "new_cases": 1359525, "total_cases": 1594305, "new_deaths": 16087, "total_deaths": 17049, "new_vaccinations": 0, "total_vaccinations": 0}, {"location": "United States", "continent": "North America", "date": "2021-01-10", "population": 331000000, "new_cases": 831278, "total_cases": 2425583, "new_deaths": 7623, "total_deaths": 24672, "new_vaccinations": 0, "total_vaccinations": 0}, {"location": "United States", "continent": "North America", "date": "2021-01-17", "population": 331000000, "new_cases": 1499500, "total_cases": 3925083, "new_deaths": 19144, "total_deaths": 43816, "new_vaccinations": 0, "total_vaccinations": 0}, {"location": "United States", "continent": "North America", "date": "2021-01-24", "population": 331000000, "new_cases": 1430708, "total_cases": 5355791, "new_deaths": 15426, "total_deaths": 59242, "new_vaccinations": 0, "total_vaccinations": 0}, {"location": "United States", "continent": "North America", "date": "2021-01-31", "population": 331000000, "new_cases": 1811974, "total_cases": 7167765, "new_deaths": 23710, "total_deaths": 82952, "new_vaccinations": 0, "total_vaccinations": 0}, {"location": "United States", "continent": "North America", "date": "2021-02-07", "population": 331000000, "new_cases": 1430359, "total_cases": 8598124, "new_deaths": 13599, "total_deaths": 96551, "new_vaccinations": 0, "total_vaccinations": 0}, {"location": "United States", "continent": "North America", "date": "2021-02-14", "population": 331000000, "new_cases": 1738808, "total_cases": 10336932, "new_deaths": 14259, "total_deaths": 110810, "new_vaccinations": 4339083, "total_vaccinations": 4339083}, {"location": "United States", "continent": "North America", "date": "2021-02-21", "population": 331000000, "new_cases": 1293781, "total_cases": 11630713, "new_deaths": 12172, "total_deaths": 122982, "new_vaccinations": 2679854, "total_vaccinations": 7018937}, {"location": "United States", "continent": "North America", "date": "2021-02-28", "population": 331000000, "new_cases": 1006168, "total_cases": 12636881, "new_deaths": 14390, "total_deaths": 137372, "new_vaccinations": 2854170, "total_vaccinations": 9873107}, {"location": "United States", "continent": "North America", "date": "2021-03-07", "population": 331000000, "new_cases": 1357794, "total_cases": 13994675, "new_deaths": 19047, "total_deaths": 156419, "new_vaccinations": 4248880, "total_vaccinations": 14121987}, {"location": "United States", "continent": "North America", "date": "2021-03-14", "population": 331000000, "new_cases": 880874, "total_cases": 14875549, "new_deaths": 10887, "total_deaths": 167306, "new_vaccinations": 6277734, "total_vaccinations": 20399721}, {"location": "United States", "continent": "North America", "date": "2021-03-21", "population": 331000000, "new_cases": 759331, "total_cases": 15634880, "new_deaths": 10544, "total_deaths": 177850, "new_vaccinations": 4340064, "total_vaccinations": 24739785}, {"location": "United States", "continent": "North America", "date": "2021-03-28", "population": 331000000, "new_cases": 922760, "total_cases": 16557640, "new_deaths": 7982, "total_deaths": 185832, "new_vaccinations": 4217497, "total_vaccinations": 28957282}, {"location": "United States", "continent": "North America", "date": "2021-04-04", "population": 331000000, "new_cases": 611133, "total_cases": 17168773, "new_deaths": 7654, "total_deaths": 193486, "new_vaccinations": 2817690, "total_vaccinations": 31774972}, {"location": "United States", "continent": "North America", "date": "2021-04-11", "population": 331000000, "new_cases": 478067, "total_cases": 17646840, "new_deaths": 4427, "total_deaths": 197913, "new_vaccinations": 4745082, "total_vaccinations": 36520054}, {"location": "United States", "continent": "North America", "date": "2021-04-18", "population": 331000000, "new_cases": 636422, "total_cases": 18283262, "new_deaths": 7993, "total_deaths": 205906, "new_vaccinations": 3548554, "total_vaccinations": 40068608}, {"location": "United States", "continent": "North America", "date": "2021-04-25", "population": 331000000, "new_cases": 486304, "total_cases": 18769566, "new_deaths": 3820, "total_deaths": 209726, "new_vaccinations": 6518051, "total_vaccinations": 46586659}, {"location": "United States", "continent": "North America", "date": "2021-05-02", "population": 331000000, "new_cases": 385397, "total_cases": 19154963, "new_deaths": 3057, "total_deaths": 212783, "new_vaccinations": 6968434, "total_vaccinations": 53555093}, {"location": "United States", "continent": "North America", "date": "2021-05-09", "population": 331000000, "new_cases": 465909, "total_cases": 19620872, "new_deaths": 4203, "total_deaths": 216986, "new_vaccinations": 4927393, "total_vaccinations": 58482486}, {"location": "United States", "continent": "North America", "date": "2021-05-16", "population": 331000000, "new_cases": 652159, "total_cases": 20273031, "new_deaths": 5545, "total_deaths": 222531, "new_vaccinations": 3154134, "total_vaccinations": 61636620}, {"location": "United States", "continent": "North America", "date": "2021-05-23", "population": 331000000, "new_cases": 667597, "total_cases": 20940628, "new_deaths": 8677, "total_deaths": 231208, "new_vaccinations": 4578278, "total_vaccinations": 66214898}, {"location": "United States", "continent": "North America", "date": "2021-05-30", "population": 331000000, "new_cases": 638731, "total_cases": 21579359, "new_deaths": 9491, "total_deaths": 240699, "new_vaccinations": 3147731, "total_vaccinations": 69362629}, {"location": "United States", "continent": "North America", "date": "2021-06-06", "population": 331000000, "new_cases": 900427, "total_cases": 22479786, "new_deaths": 12468, "total_deaths": 253167, "new_vaccinations": 3219280, "total_vaccinations": 72581909}, {"location": "United States", "continent": "North America", "date": "2021-06-13", "population": 331000000, "new_cases": 815690, "total_cases": 23295476, "new_deaths": 9688, "total_deaths": 262855, "new_vaccinations": 4362950, "total_vaccinations": 76944859}, {"location": "United States", "continent": "North America", "date": "2021-06-20", "population": 331000000, "new_cases": 1094576, "total_cases": 24390052, "new_deaths": 10191, "total_deaths": 273046, "new_vaccinations": 5193650, "total_vaccinations": 82138509}, {"location": "United States", "continent": "North America", "date": "2021-06-27", "population": 331000000, "new_cases": 1538234, "total_cases": 25928286, "new_deaths": 12755, "total_deaths": 285801, "new_vaccinations": 6828646, "total_vaccinations": 88967155}, {"location": "India", "continent": "Asia", "date": "2021-01-03", "population": 1380000000, "new_cases": 8067378, "total_cases": 9657342, "new_deaths": 148588, "total_deaths": 165436, "new_vaccinations": 0, "total_vaccinations": 0}, {"location": "India", "continent": "Asia", "date": "2021-01-10", "population": 1380000000, "new_cases": 5027726, "total_cases": 14685068, "new_deaths": 140189, "total_deaths": 305625, "new_vaccinations": 0, "total_vaccinations": 0}, {"location": "India", "continent": "Asia", "date": "2021-01-17", "population": 1380000000, "new_cases": 6169989, "total_cases": 20855057, "new_deaths": 147422, "total_deaths": 453047, "new_vaccinations": 0, "total_vaccinations": 0}, {"location": "India", "continent": "Asia", "date": "2021-01-24", "population": 1380000000, "new_cases": 5551843, "total_cases": 26406900, "new_deaths": 142653, "total_deaths": 595700, "new_vaccinations": 0, "total_vaccinations": 0}, {"location": "India", "continent": "Asia", "date": "2021-01-31", "population": 1380000000, "new_cases": 8252509, "total_cases": 34659409, "new_deaths": 184116, "total_deaths": 779816, "new_vaccinations": 0, "total_vaccinations": 0}, {"location": "India", "continent": "Asia", "date": "2021-02-07", "population": 1380000000, "new_cases": 6205094, "total_cases": 40864503, "new_deaths": 92223, "total_deaths": 872039, "new_vaccinations": 0, "total_vaccinations": 0}, {"location": "India", "continent": "Asia", "date": "2021-02-14", "population": 1380000000, "new_cases": 7551781, "total_cases": 48416284, "new_deaths": 201655, "total_deaths": 1073694, "new_vaccinations": 13629901, "total_vaccinations": 13629901}, {"location": "India", "continent": "Asia", "date": "2021-02-21", "population": 1380000000, "new_cases": 8584686, "total_cases": 57000970, "new_deaths": 243665, "total_deaths": 1317359, "new_vaccinations": 9885150, "total_vaccinations": 23515051}, {"location": "India", "continent": "Asia", "date": "2021-02-28", "population": 1380000000, "new_cases": 4476295, "total_cases": 61477265, "new_deaths": 114893, "total_deaths": 1432252, "new_vaccinations": 21365816, "total_vaccinations": 44880867}, {"location": "India", "continent": "Asia", "date": "2021-03-07", "population": 1380000000, "new_cases": 6160253, "total_cases": 67637518, "new_deaths": 139184, "total_deaths": 1571436, "new_vaccinations": 12913268, "total_vaccinations": 57794135}, {"location": "India", "continent": "Asia", "date": "2021-03-14", "population": 1380000000, "new_cases": 3637276, "total_cases": 71274794, "new_deaths": 64257, "total_deaths": 1635693, "new_vaccinations": 17542112, "total_vaccinations": 75336247}, {"location": "India", "continent": "Asia", "date": "2021-03-21", "population": 1380000000, "new_cases": 2904956, "total_cases": 74179750, "new_deaths": 55551, "total_deaths": 1691244, "new_vaccinations": 25236386, "total_vaccinations": 100572633}, {"location": "India", "continent": "Asia", "date": "2021-03-28", "population": 1380000000, "new_cases": 3013017, "total_cases": 77192767, "new_deaths": 66660, "total_deaths": 1757904, "new_vaccinations": 10481830, "total_vaccinations": 111054463}, {"location": "India", "continent": "Asia", "date": "2021-04-04", "population": 1380000000, "new_cases": 3207608, "total_cases": 80400375, "new_deaths": 74272, "total_deaths": 1832176, "new_vaccinations": 12323489, "total_vaccinations": 123377952}, {"location": "India", "continent": "Asia", "date": "2021-04-11", "population": 1380000000, "new_cases": 2205219, "total_cases": 82605594, "new_deaths": 52438, "total_deaths": 1884614, "new_vaccinations": 12303691, "total_vaccinations": 135681643}, {"location": "India", "continent": "Asia", "date": "2021-04-18", "population": 1380000000, "new_cases": 2154671, "total_cases": 84760265, "new_deaths": 33637, "total_deaths": 1918251, "new_vaccinations": 12456662, "total_vaccinations": 148138305}, {"location": "India", "continent": "Asia", "date": "2021-04-25", "population": 1380000000, "new_cases": 1466891, "total_cases": 86227156, "new_deaths": 24214, "total_deaths": 1942465, "new_vaccinations": 24229815, "total_vaccinations": 172368120}, {"location": "India", "continent": "Asia", "date": "2021-05-02", "population": 1380000000, "new_cases": 1754342, "total_cases": 87981498, "new_deaths": 45642, "total_deaths": 1988107, "new_vaccinations": 22069032, "total_vaccinations": 194437152}, {"location": "India", "continent": "Asia", "date": "2021-05-09", "population": 1380000000, "new_cases": 1340872, "total_cases": 89322370, "new_deaths": 27974, "total_deaths": 2016081, "new_vaccinations": 15588935, "total_vaccinations": 210026087}, {"location": "India", "continent": "Asia", "date": "2021-05-16", "population": 1380000000, "new_cases": 2386942, "total_cases": 91709312, "new_deaths": 58229, "total_deaths": 2074310, "new_vaccinations": 25050987, "total_vaccinations": 235077074}, {"location": "India", "continent": "Asia", "date": "2021-05-23", "population": 1380000000, "new_cases": 1848403, "total_cases": 93557715, "new_deaths": 36090, "total_deaths": 2110400, "new_vaccinations": 22983452, "total_vaccinations": 258060526}, {"location": "India", "continent": "Asia", "date": "2021-05-30", "population": 1380000000, "new_cases": 2073017, "total_cases": 95630732, "new_deaths": 43779, "total_deaths": 2154179, "new_vaccinations": 15560292, "total_vaccinations": 273620818}, {"location": "India", "continent": "Asia", "date": "2021-06-06", "population": 1380000000, "new_cases": 2666672, "total_cases": 98297404, "new_deaths": 74769, "total_deaths": 2228948, "new_vaccinations": 15918952, "total_vaccinations": 289539770}, {"location": "India", "continent": "Asia", "date": "2021-06-13", "population": 1380000000, "new_cases": 5433873, "total_cases": 103731277, "new_deaths": 83225, "total_deaths": 2312173, "new_vaccinations": 25306148, "total_vaccinations": 314845918}, {"location": "India", "continent": "Asia", "date": "2021-06-20", "population": 1380000000, "new_cases": 7448027, "total_cases": 111179304, "new_deaths": 209167, "total_deaths": 2521340, "new_vaccinations": 22764419, "total_vaccinations": 337610337}, {"location": "India", "continent": "Asia", "date": "2021-06-27", "population": 1380000000, "new_cases": 4730763, "total_cases": 115910067, "new_deaths": 83709, "total_deaths": 2605049, "new_vaccinations": 15208514, "total_vaccinations": 352818851}, {"location": "Brazil", "continent": "South America", "date": "2021-01-03", "population": 213000000, "new_cases": 334119, "total_cases": 691129, "new_deaths": 7225, "total_deaths": 10039, "new_vaccinations": 0, "total_vaccinations": 0}, {"location": "Brazil", "continent": "South America", "date": "2021-01-10", "population": 213000000, "new_cases": 340915, "total_cases": 1032044, "new_deaths": 4266, "total_deaths": 14305, "new_vaccinations": 0, "total_vaccinations": 0}, {"location": "Brazil", "continent": "South America", "date": "2021-01-17", "population": 213000000, "new_cases": 385162, "total_cases": 1417206, "new_deaths": 6592, "total_deaths": 20897, "new_vaccinations": 0, "total_vaccinations": 0}, {"location": "Brazil", "continent": "South America", "date": "2021-01-24", "population": 213000000, "new_cases": 381073, "total_cases": 1798279, "new_deaths": 4366, "total_deaths": 25263, "new_vaccinations": 0, "total_vaccinations": 0}, {"location": "Brazil", "continent": "South America", "date": "2021-01-31", "population": 213000000, "new_cases": 337149, "total_cases": 2135428, "new_deaths": 6769, "total_deaths": 32032, "new_vaccinations": 0, "total_vaccinations": 0}, {"location": "Brazil", "continent": "South America", "date": "2021-02-07", "population": 213000000, "new_cases": 427495, "total_cases": 2562923, "new_deaths": 5004, "total_deaths": 37036, "new_vaccinations": 0, "total_vaccinations": 0}, {"location": "Brazil", "continent": "South America", "date": "2021-02-14", "population": 213000000, "new_cases": 354896, "total_cases": 2917819, "new_deaths": 6443, "total_deaths": 43479, "new_vaccinations": 0, "total_vaccinations": 0}, {"location": "Brazil", "continent": "South America", "date": "2021-02-21", "population": 213000000, "new_cases": 251573, "total_cases": 3169392, "new_deaths": 5154, "total_deaths": 48633, "new_vaccinations": 2432486, "total_vaccinations": 2432486}, {"location": "Brazil", "continent": "South America", "date": "2021-02-28", "population": 213000000, "new_cases": 295795, "total_cases": 3465187, "new_deaths": 4549, "total_deaths": 53182, "new_vaccinations": 3532517, "total_vaccinations": 5965003}, {"location": "Brazil", "continent": "South America", "date": "2021-03-07", "population": 213000000, "new_cases": 322605, "total_cases": 3787792, "new_deaths": 4210, "total_deaths": 57392, "new_vaccinations": 3964499, "total_vaccinations": 9929502}, {"location": "Brazil", "continent": "South America", "date": "2021-03-14", "population": 213000000, "new_cases": 243607, "total_cases": 4031399, "new_deaths": 4413, "total_deaths": 61805, "new_vaccinations": 2607802, "total_vaccinations": 12537304}, {"location": "Brazil", "continent": "South America", "date": "2021-03-21", "population": 213000000, "new_cases": 253103, "total_cases": 4284502, "new_deaths": 2942, "total_deaths": 64747, "new_vaccinations": 3123785, "total_vaccinations": 15661089}, {"location": "Brazil", "continent": "South America", "date": "2021-03-28", "population": 213000000, "new_cases": 149192, "total_cases": 4433694, "new_deaths": 1735, "total_deaths": 66482, "new_vaccinations": 2324715, "total_vaccinations": 17985804}, {"location": "Brazil", "continent": "South America", "date": "2021-04-04", "population": 213000000, "new_cases": 207009, "total_cases": 4640703, "new_deaths": 4219, "total_deaths": 70701, "new_vaccinations": 4496096, "total_vaccinations": 22481900}, {"location": "Brazil", "continent": "South America", "date": "2021-04-11", "population": 213000000, "new_cases": 100434, "total_cases": 4741137, "new_deaths": 1996, "total_deaths": 72697, "new_vaccinations": 3923257, "total_vaccinations": 26405157}, {"location": "Brazil", "continent": "South America", "date": "2021-04-18", "population": 213000000, "new_cases": 118674, "total_cases": 4859811, "new_deaths": 2127, "total_deaths": 74824, "new_vaccinations": 1655384, "total_vaccinations": 28060541}, {"location": "Brazil", "continent": "South America", "date": "2021-04-25", "population": 213000000, "new_cases": 74625, "total_cases": 4934436, "new_deaths": 1345, "total_deaths": 76169, "new_vaccinations": 4690573, "total_vaccinations": 32751114}, {"location": "Brazil", "continent": "South America", "date": "2021-05-02", "population": 213000000, "new_cases": 69909, "total_cases": 5004345, "new_deaths": 838, "total_deaths": 77007, "new_vaccinations": 3433261, "total_vaccinations": 36184375}, {"location": "Brazil", "continent": "South America", "date": "2021-05-09", "population": 213000000, "new_cases": 89680, "total_cases": 5094025, "new_deaths": 1669, "total_deaths": 78676, "new_vaccinations": 2293561, "total_vaccinations": 38477936}, {"location": "Brazil", "continent": "South America", "date": "2021-05-16", "population": 213000000, "new_cases": 95776, "total_cases": 5189801, "new_deaths": 1545, "total_deaths": 80221, "new_vaccinations": 4581066, "total_vaccinations": 43059002}, {"location": "Brazil", "continent": "South America", "date": "2021-05-23", "population": 213000000, "new_cases": 118547, "total_cases": 5308348, "new_deaths": 1829, "total_deaths": 82050, "new_vaccinations": 2531795, "total_vaccinations": 45590797}, {"location": "Brazil", "continent": "South America", "date": "2021-05-30", "population": 213000000, "new_cases": 118803, "total_cases": 5427151, "new_deaths": 2107, "total_deaths": 84157, "new_vaccinations": 2483795, "total_vaccinations": 48074592}, {"location": "Brazil", "continent": "South America", "date": "2021-06-06", "population": 213000000, "new_cases": 211430, "total_cases": 5638581, "new_deaths": 3271, "total_deaths": 87428, "new_vaccinations": 1661403, "total_vaccinations": 49735995}, {"location": "Brazil", "continent": "South America", "date": "2021-06-13", "population": 213000000, "new_cases": 190092, "total_cases": 5828673, "new_deaths": 3922, "total_deaths": 91350, "new_vaccinations": 3408378, "total_vaccinations": 53144373}, {"location": "Brazil", "continent": "South America", "date": "2021-06-20", "population": 213000000, "new_cases": 290178, "total_cases": 6118851, "new_deaths": 3610, "total_deaths": 94960, "new_vaccinations": 2045324, "total_vaccinations": 55189697}, {"location": "Brazil", "continent": "South America", "date": "2021-06-27", "population": 213000000, "new_cases": 303215, "total_cases": 6422066, "new_deaths": 5902, "total_deaths": 100862, "new_vaccinations": 4435570, "total_vaccinations": 59625267}, {"location": "United Kingdom", "continent": "Europe", "date": "2021-01-03", "population": 67000000, "new_cases": 462019, "total_cases": 531063, "new_deaths": 7449, "total_deaths": 7945, "new_vaccinations": 0, "total_vaccinations": 0}, {"location": "United Kingdom", "continent": "Europe", "date": "2021-01-10", "population": 67000000, "new_cases": 322286, "total_cases": 853349, "new_deaths": 3453, "total_deaths": 11398, "new_vaccinations": 0, "total_vaccinations": 0}, {"location": "United Kingdom", "continent": "Europe", "date": "2021-01-17", "population": 67000000, "new_cases": 313411, "total_cases": 1166760, "new_deaths": 4079, "total_deaths": 15477, "new_vaccinations": 0, "total_vaccinations": 0}, {"location": "United Kingdom", "continent": "Europe", "date": "2021-01-24", "population": 67000000, "new_cases": 457649, "total_cases": 1624409, "new_deaths": 7518, "total_deaths": 22995, "new_vaccinations": 0, "total_vaccinations": 0}, {"location": "United Kingdom", "continent": "Europe", "date": "2021-01-31", "population": 67000000, "new_cases": 432249, "total_cases": 2056658, "new_deaths": 6912, "total_deaths": 29907, "new_vaccinations": 0, "total_vaccinations": 0}, {"location": "United Kingdom", "continent": "Europe", "date": "2021-02-07", "population": 67000000, "new_cases": 313225, "total_cases": 2369883, "new_deaths": 4911, "total_deaths": 34818, "new_vaccinations": 1380022, "total_vaccinations": 1380022}, {"location": "United Kingdom", "continent": "Europe", "date": "2021-02-14", "population": 67000000, "new_cases": 387121, "total_cases": 2757004, "new_deaths": 4280, "total_deaths": 39098, "new_vaccinations": 2218020, "total_vaccinations": 3598042}, {"location": "United Kingdom", "continent": "Europe", "date": "2021-02-21", "population": 67000000, "new_cases": 445851, "total_cases": 3202855, "new_deaths": 7689, "total_deaths": 46787, "new_vaccinations": 1130428, "total_vaccinations": 4728470}, {"location": "United Kingdom", "continent": "Europe", "date": "2021-02-28", "population": 67000000, "new_cases": 295606, "total_cases": 3498461, "new_deaths": 3483, "total_deaths": 50270, "new_vaccinations": 890397, "total_vaccinations": 5618867}, {"location": "United Kingdom", "continent": "Europe", "date": "2021-03-07", "population": 67000000, "new_cases": 240210, "total_cases": 3738671, "new_deaths": 3341, "total_deaths": 53611, "new_vaccinations": 1844401, "total_vaccinations": 7463268}, {"location": "United Kingdom", "continent": "Europe", "date": "2021-03-14", "population": 67000000, "new_cases": 194716, "total_cases": 3933387, "new_deaths": 1844, "total_deaths": 55455, "new_vaccinations": 2153262, "total_vaccinations": 9616530}, {"location": "United Kingdom", "continent": "Europe", "date": "2021-03-21", "population": 67000000, "new_cases": 278384, "total_cases": 4211771, "new_deaths": 5089, "total_deaths": 60544, "new_vaccinations": 841667, "total_vaccinations": 10458197}, {"location": "United Kingdom", "continent": "Europe", "date": "2021-03-28", "population": 67000000, "new_cases": 164587, "total_cases": 4376358, "new_deaths": 2709, "total_deaths": 63253, "new_vaccinations": 1464230, "total_vaccinations": 11922427}, {"location": "United Kingdom", "continent": "Europe", "date": "2021-04-04", "population": 67000000, "new_cases": 88562, "total_cases": 4464920, "new_deaths": 1550, "total_deaths": 64803, "new_vaccinations": 1079069, "total_vaccinations": 13001496}, {"location": "United Kingdom", "continent": "Europe", "date": "2021-04-11", "population": 67000000, "new_cases": 181166, "total_cases": 4646086, "new_deaths": 2537, "total_deaths": 67340, "new_vaccinations": 2042978, "total_vaccinations": 15044474}, {"location": "United Kingdom", "continent": "Europe", "date": "2021-04-18", "population": 67000000, "new_cases": 131607, "total_cases": 4777693, "new_deaths": 2107, "total_deaths": 69447, "new_vaccinations": 1089947, "total_vaccinations": 16134421}, {"location": "United Kingdom", "continent": "Europe", "date": "2021-04-25", "population": 67000000, "new_cases": 132431, "total_cases": 4910124, "new_deaths": 2344, "total_deaths": 71791, "new_vaccinations": 1756267, "total_vaccinations": 17890688}, {"location": "United Kingdom", "continent": "Europe", "date": "2021-05-02", "population": 67000000, "new_cases": 78645, "total_cases": 4988769, "new_deaths": 1377, "total_deaths": 73168, "new_vaccinations": 1574828, "total_vaccinations": 19465516}, {"location": "United Kingdom", "continent": "Europe", "date": "2021-05-09", "population": 67000000, "new_cases": 101695, "total_cases": 5090464, "new_deaths": 1590, "total_deaths": 74758, "new_vaccinations": 1648775, "total_vaccinations": 21114291}, {"location": "United Kingdom", "continent": "Europe", "date": "2021-05-16", "population": 67000000, "new_cases": 112539, "total_cases": 5203003, "new_deaths": 1430, "total_deaths": 76188, "new_vaccinations": 1951696, "total_vaccinations": 23065987}, {"location": "United Kingdom", "continent": "Europe", "date": "2021-05-23", "population": 67000000, "new_cases": 118729, "total_cases": 5321732, "new_deaths": 1538, "total_deaths": 77726, "new_vaccinations": 2085533, "total_vaccinations": 25151520}, {"location": "United Kingdom", "continent": "Europe", "date": "2021-05-30", "population": 67000000, "new_cases": 122135, "total_cases": 5443867, "new_deaths": 2010, "total_deaths": 79736, "new_vaccinations": 1730476, "total_vaccinations": 26881996}, {"location": "United Kingdom", "continent": "Europe", "date": "2021-06-06", "population": 67000000, "new_cases": 174283, "total_cases": 5618150, "new_deaths": 2691, "total_deaths": 82427, "new_vaccinations": 1581163, "total_vaccinations": 28463159}, {"location": "United Kingdom", "continent": "Europe", "date": "2021-06-13", "population": 67000000, "new_cases": 362870, "total_cases": 5981020, "new_deaths": 5805, "total_deaths": 88232, "new_vaccinations": 1812084, "total_vaccinations": 30275243}, {"location": "United Kingdom", "continent": "Europe", "date": "2021-06-20", "population": 67000000, "new_cases": 270644, "total_cases": 6251664, "new_deaths": 4039, "total_deaths": 92271, "new_vaccinations": 927874, "total_vaccinations": 31203117}, {"location": "United Kingdom", "continent": "Europe", "date": "2021-06-27", "population": 67000000, "new_cases": 305936, "total_cases": 6557600, "new_deaths": 3695, "total_deaths": 95966, "new_vaccinations": 2043060, "total_vaccinations": 33246177}, {"location": "France", "continent": "Europe", "date": "2021-01-03", "population": 65000000, "new_cases": 126560, "total_cases": 233987, "new_deaths": 1662, "total_deaths": 2259, "new_vaccinations": 0, "total_vaccinations": 0}, {"location": "France", "continent": "Europe", "date": "2021-01-10", "population": 65000000, "new_cases": 105279, "total_cases": 339266, "new_deaths": 923, "total_deaths": 3182, "new_vaccinations": 0, "total_vaccinations": 0}, {"location": "France", "continent": "Europe", "date": "2021-01-17", "population": 65000000, "new_cases": 158951, "total_cases": 498217, "new_deaths": 2260, "total_deaths": 5442, "new_vaccinations": 0, "total_vaccinations": 0}, {"location": "France", "continent": "Europe", "date": "2021-01-24", "population": 65000000, "new_cases": 154209, "total_cases": 652426, "new_deaths": 1436, "total_deaths": 6878, "new_vaccinations": 0, "total_vaccinations": 0}, {"location": "France", "continent": "Europe", "date": "2021-01-31", "population": 65000000, "new_cases": 146282, "total_cases": 798708, "new_deaths": 1637, "total_deaths": 8515, "new_vaccinations": 0, "total_vaccinations": 0}, {"location": "France", "continent": "Europe", "date": "2021-02-07", "population": 65000000, "new_cases": 163635, "total_cases": 962343, "new_deaths": 1402, "total_deaths": 9917, "new_vaccinations": 0, "total_vaccinations": 0}, {"location": "France", "continent": "Europe", "date": "2021-02-14", "population": 65000000, "new_cases": 129339, "total_cases": 1091682, "new_deaths": 1513, "total_deaths": 11430, "new_vaccinations": 0, "total_vaccinations": 0}, {"location": "France", "continent": "Europe", "date": "2021-02-21", "population": 65000000, "new_cases": 106251, "total_cases": 1197933, "new_deaths": 1425, "total_deaths": 12855, "new_vaccinations": 1361694, "total_vaccinations": 1361694}, {"location": "France", "continent": "Europe", "date": "2021-02-28", "population": 65000000, "new_cases": 121740, "total_cases": 1319673, "new_deaths": 1327, "total_deaths": 14182, "new_vaccinations": 2032421, "total_vaccinations": 3394115}, {"location": "France", "continent": "Europe", "date": "2021-03-07", "population": 65000000, "new_cases": 82752, "total_cases": 1402425, "new_deaths": 1177, "total_deaths": 15359, "new_vaccinations": 1372524, "total_vaccinations": 4766639}, {"location": "France", "continent": "Europe", "date": "2021-03-14", "population": 65000000, "new_cases": 92938, "total_cases": 1495363, "new_deaths": 907, "total_deaths": 16266, "new_vaccinations": 1845800, "total_vaccinations": 6612439}, {"location": "France", "continent": "Europe", "date": "2021-03-21", "population": 65000000, "new_cases": 65833, "total_cases": 1561196, "new_deaths": 724, "total_deaths": 16990, "new_vaccinations": 1753155, "total_vaccinations": 8365594}, {"location": "France", "continent": "Europe", "date": "2021-03-28", "population": 65000000, "new_cases": 70362, "total_cases": 1631558, "new_deaths": 1018, "total_deaths": 18008, "new_vaccinations": 838735, "total_vaccinations": 9204329}, {"location": "France", "continent": "Europe", "date": "2021-04-04", "population": 65000000, "new_cases": 65029, "total_cases": 1696587, "new_deaths": 573, "total_deaths": 18581, "new_vaccinations": 1031416, "total_vaccinations": 10235745}, {"location": "France", "continent": "Europe", "date": "2021-04-11", "population": 65000000, "new_cases": 43140, "total_cases": 1739727, "new_deaths": 483, "total_deaths": 19064, "new_vaccinations": 812280, "total_vaccinations": 11048025}, {"location": "France", "continent": "Europe", "date": "2021-04-18", "population": 65000000, "new_cases": 31255, "total_cases": 1770982, "new_deaths": 422, "total_deaths": 19486, "new_vaccinations": 2089062, "total_vaccinations": 13137087}, {"location": "France", "continent": "Europe", "date": "2021-04-25", "population": 65000000, "new_cases": 54656, "total_cases": 1825638, "new_deaths": 658, "total_deaths": 20144, "new_vaccinations": 1411399, "total_vaccinations": 14548486}, {"location": "France", "continent": "Europe", "date": "2021-05-02", "population": 65000000, "new_cases": 33999, "total_cases": 1859637, "new_deaths": 361, "total_deaths": 20505, "new_vaccinations": 2010443, "total_vaccinations": 16558929}, {"location": "France", "continent": "Europe", "date": "2021-05-09", "population": 65000000, "new_cases": 43358, "total_cases": 1902995, "new_deaths": 574, "total_deaths": 21079, "new_vaccinations": 1877862, "total_vaccinations": 18436791}, {"location": "France", "continent": "Europe", "date": "2021-05-16", "population": 65000000, "new_cases": 52843, "total_cases": 1955838, "new_deaths": 514, "total_deaths": 21593, "new_vaccinations": 1423913, "total_vaccinations": 19860704}, {"location": "France", "continent": "Europe", "date": "2021-05-23", "population": 65000000, "new_cases": 48436, "total_cases": 2004274, "new_deaths": 665, "total_deaths": 22258, "new_vaccinations": 1768521, "total_vaccinations": 21629225}, {"location": "France", "continent": "Europe", "date": "2021-05-30", "population": 65000000, "new_cases": 91568, "total_cases": 2095842, "new_deaths": 1386, "total_deaths": 23644, "new_vaccinations": 1493953, "total_vaccinations": 23123178}, {"location": "France", "continent": "Europe", "date": "2021-06-06", "population": 65000000, "new_cases": 93664, "total_cases": 2189506, "new_deaths": 1190, "total_deaths": 24834, "new_vaccinations": 843603, "total_vaccinations": 23966781}, {"location": "France", "continent": "Europe", "date": "2021-06-13", "population": 65000000, "new_cases": 94526, "total_cases": 2284032, "new_deaths": 853, "total_deaths": 25687, "new_vaccinations": 1098164, "total_vaccinations": 25064945}, {"location": "France", "continent": "Europe", "date": "2021-06-20", "population": 65000000, "new_cases": 82533, "total_cases": 2366565, "new_deaths": 843, "total_deaths": 26530, "new_vaccinations": 1993105, "total_vaccinations": 27058050}, {"location": "France", "continent": "Europe", "date": "2021-06-27", "population": 65000000, "new_cases": 120313, "total_cases": 2486878, "new_deaths": 1307, "total_deaths": 27837, "new_vaccinations": 1928487, "total_vaccinations": 28986537}, {"location": "Germany", "continent": "Europe", "date": "2021-01-03", "population": 83000000, "new_cases": 296921, "total_cases": 381991, "new_deaths": 7495, "total_deaths": 8505, "new_vaccinations": 0, "total_vaccinations": 0}, {"location": "Germany", "continent": "Europe", "date": "2021-01-10", "population": 83000000, "new_cases": 244478, "total_cases": 626469, "new_deaths": 3589, "total_deaths": 12094, "new_vaccinations": 0, "total_vaccinations": 0}, {"location": "Germany", "continent": "Europe", "date": "2021-01-17", "population": 83000000, "new_cases": 202465, "total_cases": 828934, "new_deaths": 4864, "total_deaths": 16958, "new_vaccinations": 0, "total_vaccinations": 0}, {"location": "Germany", "continent": "Europe", "date": "2021-01-24", "population": 83000000, "new_cases": 251174, "total_cases": 1080108, "new_deaths": 6142, "total_deaths": 23100, "new_vaccinations": 0, "total_vaccinations": 0}, {"location": "Germany", "continent": "Europe", "date": "2021-01-31", "population": 83000000, "new_cases": 243325, "total_cases": 1323433, "new_deaths": 5627, "total_deaths": 28727, "new_vaccinations": 3107143, "total_vaccinations": 3107143}, {"location": "Germany", "continent": "Europe", "date": "2021-02-07", "population": 83000000, "new_cases": 361845, "total_cases": 1685278, "new_deaths": 10230, "total_deaths": 38957, "new_vaccinations": 1514072, "total_vaccinations": 4621215}, {"location": "Germany", "continent": "Europe", "date": "2021-02-14", "population": 83000000, "new_cases": 271461, "total_cases": 1956739, "new_deaths": 6552, "total_deaths": 45509, "new_vaccinations": 3630627, "total_vaccinations": 8251842}, {"location": "Germany", "continent": "Europe", "date": "2021-02-21", "population": 83000000, "new_cases": 324690, "total_cases": 2281429, "new_deaths": 5027, "total_deaths": 50536, "new_vaccinations": 2964447, "total_vaccinations": 11216289}, {"location": "Germany", "continent": "Europe", "date": "2021-02-28", "population": 83000000, "new_cases": 188599, "total_cases": 2470028, "new_deaths": 4810, "total_deaths": 55346, "new_vaccinations": 3362023, "total_vaccinations": 14578312}, {"location": "Germany", "continent": "Europe", "date": "2021-03-07", "population": 83000000, "new_cases": 173276, "total_cases": 2643304, "new_deaths": 4946, "total_deaths": 60292, "new_vaccinations": 3193565, "total_vaccinations": 17771877}, {"location": "Germany", "continent": "Europe", "date": "2021-03-14", "population": 83000000, "new_cases": 214967, "total_cases": 2858271, "new_deaths": 4239, "total_deaths": 64531, "new_vaccinations": 2504688, "total_vaccinations": 20276565}, {"location": "Germany", "continent": "Europe", "date": "2021-03-21", "population": 83000000, "new_cases": 238431, "total_cases": 3096702, "new_deaths": 6252, "total_deaths": 70783, "new_vaccinations": 1507699, "total_vaccinations": 21784264}, {"location": "Germany", "continent": "Europe", "date": "2021-03-28", "population": 83000000, "new_cases": 116190, "total_cases": 3212892, "new_deaths": 3057, "total_deaths": 73840, "new_vaccinations": 3006013, "total_vaccinations": 24790277}, {"location": "Germany", "continent": "Europe", "date": "2021-04-04", "population": 83000000, "new_cases": 150418, "total_cases": 3363310, "new_deaths": 4254, "total_deaths": 78094, "new_vaccinations": 1917387, "total_vaccinations": 26707664}, {"location": "Germany", "continent": "Europe", "date": "2021-04-11", "population": 83000000, "new_cases": 87739, "total_cases": 3451049, "new_deaths": 1873, "total_deaths": 79967, "new_vaccinations": 2329437, "total_vaccinations": 29037101}, {"location": "Germany", "continent": "Europe", "date": "2021-04-18", "population": 83000000, "new_cases": 68524, "total_cases": 3519573, "new_deaths": 1825, "total_deaths": 81792, "new_vaccinations": 3313316, "total_vaccinations": 32350417}, {"location": "Germany", "continent": "Europe", "date": "2021-04-25", "population": 83000000, "new_cases": 120775, "total_cases": 3640348, "new_deaths": 2161, "total_deaths": 83953, "new_vaccinations": 2401976, "total_vaccinations": 34752393}, {"location": "Germany", "continent": "Europe", "date": "2021-05-02", "population": 83000000, "new_cases": 72132, "total_cases": 3712480, "new_deaths": 1067, "total_deaths": 85020, "new_vaccinations": 3363665, "total_vaccinations": 38116058}, {"location": "Germany", "continent": "Europe", "date": "2021-05-09", "population": 83000000, "new_cases": 63351, "total_cases": 3775831, "new_deaths": 1639, "total_deaths": 86659, "new_vaccinations": 2092315, "total_vaccinations": 40208373}, {"location": "Germany", "continent": "Europe", "date": "2021-05-16", "population": 83000000, "new_cases": 136260, "total_cases": 3912091, "new_deaths": 2502, "total_deaths": 89161, "new_vaccinations": 1270198, "total_vaccinations": 41478571}, {"location": "Germany", "continent": "Europe", "date": "2021-05-23", "population": 83000000, "new_cases": 115381, "total_cases": 4027472, "new_deaths": 2856, "total_deaths": 92017, "new_vaccinations": 2461407, "total_vaccinations": 43939978}, {"location": "Germany", "continent": "Europe", "date": "2021-05-30", "population": 83000000, "new_cases": 178455, "total_cases": 4205927, "new_deaths": 4226, "total_deaths": 96243, "new_vaccinations": 2466993, "total_vaccinations": 46406971}, {"location": "Germany", "continent": "Europe", "date": "2021-06-06", "population": 83000000, "new_cases": 145446, "total_cases": 4351373, "new_deaths": 2556, "total_deaths": 98799, "new_vaccinations": 2967367, "total_vaccinations": 49374338}, {"location": "Germany", "continent": "Europe", "date": "2021-06-13", "population": 83000000, "new_cases": 173579, "total_cases": 4524952, "new_deaths": 3680, "total_deaths": 102479, "new_vaccinations": 2566837, "total_vaccinations": 51941175}, {"location": "Germany", "continent": "Europe", "date": "2021-06-20", "population": 83000000, "new_cases": 238227, "total_cases": 4763179, "new_deaths": 4562, "total_deaths": 107041, "new_vaccinations": 2994924, "total_vaccinations": 54936099}, {"location": "Germany", "continent": "Europe", "date": "2021-06-27", "population": 83000000, "new_cases": 185777, "total_cases": 4948956, "new_deaths": 2996, "total_deaths": 110037, "new_vaccinations": 1724428, "total_vaccinations": 56660527}, {"location": "South Africa", "continent": "Africa", "date": "2021-01-03", "population": 59000000, "new_cases": 85564, "total_cases": 132015, "new_deaths": 1859, "total_deaths": 2357, "new_vaccinations": 0, "total_vaccinations": 0}, {"location": "South Africa", "continent": "Africa", "date": "2021-01-10", "population": 59000000, "new_cases": 130291, "total_cases": 262306, "new_deaths": 2947, "total_deaths": 5304, "new_vaccinations": 0, "total_vaccinations": 0}, {"location": "South Africa", "continent": "Africa", "date": "2021-01-17", "population": 59000000, "new_cases": 91371, "total_cases": 353677, "new_deaths": 1468, "total_deaths": 6772, "new_vaccinations": 0, "total_vaccinations": 0}, {"location": "South Africa", "continent": "Africa", "date": "2021-01-24", "population": 59000000, "new_cases": 86416, "total_cases": 440093, "new_deaths": 1115, "total_deaths": 7887, "new_vaccinations": 0, "total_vaccinations": 0}, {"location": "South Africa", "continent": "Africa", "date": "2021-01-31", "population": 59000000, "new_cases": 92936, "total_cases": 533029, "new_deaths": 2230, "total_deaths": 10117, "new_vaccinations": 0, "total_vaccinations": 0}, {"location": "South Africa", "continent": "Africa", "date": "2021-02-07", "population": 59000000, "new_cases": 126164, "total_cases": 659193, "new_deaths": 1717, "total_deaths": 11834, "new_vaccinations": 0, "total_vaccinations": 0}, {"location": "South Africa", "continent": "Africa", "date": "2021-02-14", "population": 59000000, "new_cases": 97127, "total_cases": 756320, "new_deaths": 1772, "total_deaths": 13606, "new_vaccinations": 0, "total_vaccinations": 0}, {"location": "South Africa", "continent": "Africa", "date": "2021-02-21", "population": 59000000, "new_cases": 135738, "total_cases": 892058, "new_deaths": 2098, "total_deaths": 15704, "new_vaccinations": 0, "total_vaccinations": 0}, {"location": "South Africa", "continent": "Africa", "date": "2021-02-28", "population": 59000000, "new_cases": 62502, "total_cases": 954560, "new_deaths": 821, "total_deaths": 16525, "new_vaccinations": 0, "total_vaccinations": 0}, {"location": "South Africa", "continent": "Africa", "date": "2021-03-07", "population": 59000000, "new_cases": 90045, "total_cases": 1044605, "new_deaths": 1874, "total_deaths": 18399, "new_vaccinations": 0, "total_vaccinations": 0}, {"location": "South Africa", "continent": "Africa", "date": "2021-03-14", "population": 59000000, "new_cases": 106171, "total_cases": 1150776, "new_deaths": 2554, "total_deaths": 20953, "new_vaccinations": 821823, "total_vaccinations": 821823}, {"location": "South Africa", "continent": "Africa", "date": "2021-03-21", "population": 59000000, "new_cases": 78394, "total_cases": 1229170, "new_deaths": 1370, "total_deaths": 22323, "new_vaccinations": 1539392, "total_vaccinations": 2361215}, {"location": "South Africa", "continent": "Africa", "date": "2021-03-28", "population": 59000000, "new_cases": 58921, "total_cases": 1288091, "new_deaths": 1004, "total_deaths": 23327, "new_vaccinations": 1978093, "total_vaccinations": 4339308}, {"location": "South Africa", "continent": "Africa", "date": "2021-04-04", "population": 59000000, "new_cases": 56076, "total_cases": 1344167, "new_deaths": 989, "total_deaths": 24316, "new_vaccinations": 1500775, "total_vaccinations": 5840083}, {"location": "South Africa", "continent": "Africa", "date": "2021-04-11", "population": 59000000, "new_cases": 67317, "total_cases": 1411484, "new_deaths": 913, "total_deaths": 25229, "new_vaccinations": 1773379, "total_vaccinations": 7613462}, {"location": "South Africa", "continent": "Africa", "date": "2021-04-18", "population": 59000000, "new_cases": 25988, "total_cases": 1437472, "new_deaths": 346, "total_deaths": 25575, "new_vaccinations": 1039061, "total_vaccinations": 8652523}, {"location": "South Africa", "continent": "Africa", "date": "2021-04-25", "population": 59000000, "new_cases": 22583, "total_cases": 1460055, "new_deaths": 392, "total_deaths": 25967, "new_vaccinations": 1670344, "total_vaccinations": 10322867}, {"location": "South Africa", "continent": "Africa", "date": "2021-05-02", "population": 59000000, "new_cases": 20083, "total_cases": 1480138, "new_deaths": 319, "total_deaths": 26286, "new_vaccinations": 1099244, "total_vaccinations": 11422111}, {"location": "South Africa", "continent": "Africa", "date": "2021-05-09", "population": 59000000, "new_cases": 27015, "total_cases": 1507153, "new_deaths": 411, "total_deaths": 26697, "new_vaccinations": 1073735, "total_vaccinations": 12495846}, {"location": "South Africa", "continent": "Africa", "date": "2021-05-16", "population": 59000000, "new_cases": 43719, "total_cases": 1550872, "new_deaths": 973, "total_deaths": 27670, "new_vaccinations": 980012, "total_vaccinations": 13475858}, {"location": "South Africa", "continent": "Africa", "date": "2021-05-23", "population": 59000000, "new_cases": 26092, "total_cases": 1576964, "new_deaths": 370, "total_deaths": 28040, "new_vaccinations": 1075248, "total_vaccinations": 14551106}, {"location": "South Africa", "continent": "Africa", "date": "2021-05-30", "population": 59000000, "new_cases": 27383, "total_cases": 1604347, "new_deaths": 605, "total_deaths": 28645, "new_vaccinations": 1537872, "total_vaccinations": 16088978}, {"location": "South Africa", "continent": "Africa", "date": "2021-06-06", "population": 59000000, "new_cases": 89556, "total_cases": 1693903, "new_deaths": 1590, "total_deaths": 30235, "new_vaccinations": 1360432, "total_vaccinations": 17449410}, {"location": "South Africa", "continent": "Africa", "date": "2021-06-13", "population": 59000000, "new_cases": 56739, "total_cases": 1750642, "new_deaths": 891, "total_deaths": 31126, "new_vaccinations": 1460542, "total_vaccinations": 18909952}, {"location": "South Africa", "continent": "Africa", "date": "2021-06-20", "population": 59000000, "new_cases": 80700, "total_cases": 1831342, "new_deaths": 1882, "total_deaths": 33008, "new_vaccinations": 1733770, "total_vaccinations": 20643722}, {"location": "South Africa", "continent": "Africa", "date": "2021-06-27", "population": 59000000, "new_cases": 66100, "total_cases": 1897442, "new_deaths": 1002, "total_deaths": 34010, "new_vaccinations": 1649176, "total_vaccinations": 22292898}, {"location": "Japan", "continent": "Asia", "date": "2021-01-03", "population": 126000000, "new_cases": 529075, "total_cases": 719136, "new_deaths": 9986, "total_deaths": 11534, "new_vaccinations": 0, "total_vaccinations": 0}, {"location": "Japan", "continent": "Asia", "date": "2021-01-10", "population": 126000000, "new_cases": 822837, "total_cases": 1541973, "new_deaths": 12479, "total_deaths": 24013, "new_vaccinations": 0, "total_vaccinations": 0}, {"location": "Japan", "continent": "Asia", "date": "2021-01-17", "population": 126000000, "new_cases": 740802, "total_cases": 2282775, "new_deaths": 14185, "total_deaths": 38198, "new_vaccinations": 0, "total_vaccinations": 0}, {"location": "Japan", "continent": "Asia", "date": "2021-01-24", "population": 126000000, "new_cases": 588920, "total_cases": 2871695, "new_deaths": 10079, "total_deaths": 48277, "new_vaccinations": 0, "total_vaccinations": 0}, {"location": "Japan", "continent": "Asia", "date": "2021-01-31", "population": 126000000, "new_cases": 868579, "total_cases": 3740274, "new_deaths": 14826, "total_deaths": 63103, "new_vaccinations": 4510800, "total_vaccinations": 4510800}, {"location": "Japan", "continent": "Asia", "date": "2021-02-07", "population": 126000000, "new_cases": 907602, "total_cases": 4647876, "new_deaths": 21128, "total_deaths": 84231, "new_vaccinations": 3968233, "total_vaccinations": 8479033}, {"location": "Japan", "continent": "Asia", "date": "2021-02-14", "population": 126000000, "new_cases": 619296, "total_cases": 5267172, "new_deaths": 10519, "total_deaths": 94750, "new_vaccinations": 5555714, "total_vaccinations": 14034747}, {"location": "Japan", "continent": "Asia", "date": "2021-02-21", "population": 126000000, "new_cases": 677867, "total_cases": 5945039, "new_deaths": 17299, "total_deaths": 112049, "new_vaccinations": 4374708, "total_vaccinations": 18409455}, {"location": "Japan", "continent": "Asia", "date": "2021-02-28", "population": 126000000, "new_cases": 568042, "total_cases": 6513081, "new_deaths": 8659, "total_deaths": 120708, "new_vaccinations": 3256597, "total_vaccinations": 21666052}, {"location": "Japan", "continent": "Asia", "date": "2021-03-07", "population": 126000000, "new_cases": 520374, "total_cases": 7033455, "new_deaths": 11756, "total_deaths": 132464, "new_vaccinations": 2658692, "total_vaccinations": 24324744}, {"location": "Japan", "continent": "Asia", "date": "2021-03-14", "population": 126000000, "new_cases": 593797, "total_cases": 7627252, "new_deaths": 10961, "total_deaths": 143425, "new_vaccinations": 4528093, "total_vaccinations": 28852837}, {"location": "Japan", "continent": "Asia", "date": "2021-03-21", "population": 126000000, "new_cases": 666931, "total_cases": 8294183, "new_deaths": 13773, "total_deaths": 157198, "new_vaccinations": 2793747, "total_vaccinations": 31646584}, {"location": "Japan", "continent": "Asia", "date": "2021-03-28", "population": 126000000, "new_cases": 456771, "total_cases": 8750954, "new_deaths": 9101, "total_deaths": 166299, "new_vaccinations": 2241691, "total_vaccinations": 33888275}, {"location": "Japan", "continent": "Asia", "date": "2021-04-04", "population": 126000000, "new_cases": 259846, "total_cases": 9010800, "new_deaths": 4874, "total_deaths": 171173, "new_vaccinations": 2333356, "total_vaccinations": 36221631}, {"location": "Japan", "continent": "Asia", "date": "2021-04-11", "population": 126000000, "new_cases": 198100, "total_cases": 9208900, "new_deaths": 4365, "total_deaths": 175538, "new_vaccinations": 3812449, "total_vaccinations": 40034080}, {"location": "Japan", "continent": "Asia", "date": "2021-04-18", "population": 126000000, "new_cases": 288660, "total_cases": 9497560, "new_deaths": 7337, "total_deaths": 182875, "new_vaccinations": 2810501, "total_vaccinations": 42844581}, {"location": "Japan", "continent": "Asia", "date": "2021-04-25", "population": 126000000, "new_cases": 169830, "total_cases": 9667390, "new_deaths": 4189, "total_deaths": 187064, "new_vaccinations": 3810064, "total_vaccinations": 46654645}, {"location": "Japan", "continent": "Asia", "date": "2021-05-02", "population": 126000000, "new_cases": 246265, "total_cases": 9913655, "new_deaths": 4034, "total_deaths": 191098, "new_vaccinations": 4874833, "total_vaccinations": 51529478}, {"location": "Japan", "continent": "Asia", "date": "2021-05-09", "population": 126000000, "new_cases": 232692, "total_cases": 10146347, "new_deaths": 4503, "total_deaths": 195601, "new_vaccinations": 4990254, "total_vaccinations": 56519732}, {"location": "Japan", "continent": "Asia", "date": "2021-05-16", "population": 126000000, "new_cases": 169479, "total_cases": 10315826, "new_deaths": 3452, "total_deaths": 199053, "new_vaccinations": 5664235, "total_vaccinations": 62183967}, {"location": "Japan", "continent": "Asia", "date": "2021-05-23", "population": 126000000, "new_cases": 202221, "total_cases": 10518047, "new_deaths": 3993, "total_deaths": 203046, "new_vaccinations": 3193657, "total_vaccinations": 65377624}, {"location": "Japan", "continent": "Asia", "date": "2021-05-30", "population": 126000000, "new_cases": 331825, "total_cases": 10849872, "new_deaths": 6198, "total_deaths": 209244, "new_vaccinations": 3105432, "total_vaccinations": 68483056}, {"location": "Japan", "continent": "Asia", "date": "2021-06-06", "population": 126000000, "new_cases": 332507, "total_cases": 11182379, "new_deaths": 6708, "total_deaths": 215952, "new_vaccinations": 2772075, "total_vaccinations": 71255131}, {"location": "Japan", "continent": "Asia", "date": "2021-06-13", "population": 126000000, "new_cases": 371979, "total_cases": 11554358, "new_deaths": 8330, "total_deaths": 224282, "new_vaccinations": 4554462, "total_vaccinations": 75809593}, {"location": "Japan", "continent": "Asia", "date": "2021-06-20", "population": 126000000, "new_cases": 543302, "total_cases": 12097660, "new_deaths": 11602, "total_deaths": 235884, "new_vaccinations": 4991002, "total_vaccinations": 80800595}, {"location": "Japan", "continent": "Asia", "date": "2021-06-27", "population": 126000000, "new_cases": 664052, "total_cases": 12761712, "new_deaths": 8839, "total_deaths": 244723, "new_vaccinations": 3787580, "total_vaccinations": 84588175}, {"location": "Mexico", "continent": "North America", "date": "2021-01-03", "population": 128000000, "new_cases": 273154, "total_cases": 356298, "new_deaths": 7946, "total_deaths": 9180, "new_vaccinations": 0, "total_vaccinations": 0}, {"location": "Mexico", "continent": "North America", "date": "2021-01-10", "population": 128000000, "new_cases": 400786, "total_cases": 757084, "new_deaths": 11102, "total_deaths": 20282, "new_vaccinations": 0, "total_vaccinations": 0}, {"location": "Mexico", "continent": "North America", "date": "2021-01-17", "population": 128000000, "new_cases": 523164, "total_cases": 1280248, "new_deaths": 11368, "total_deaths": 31650, "new_vaccinations": 0, "total_vaccinations": 0}, {"location": "Mexico", "continent": "North America", "date": "2021-01-24", "population": 128000000, "new_cases": 445476, "total_cases": 1725724, "new_deaths": 11597, "total_deaths": 43247, "new_vaccinations": 0, "total_vaccinations": 0}, {"location": "Mexico", "continent": "North America", "date": "2021-01-31", "population": 128000000, "new_cases": 700474, "total_cases": 2426198, "new_deaths": 17718, "total_deaths": 60965, "new_vaccinations": 0, "total_vaccinations": 0}, {"location": "Mexico", "continent": "North America", "date": "2021-02-07", "population": 128000000, "new_cases": 514600, "total_cases": 2940798, "new_deaths": 12330, "total_deaths": 73295, "new_vaccinations": 0, "total_vaccinations": 0}, {"location": "Mexico", "continent": "North America", "date": "2021-02-14", "population": 128000000, "new_cases": 437692, "total_cases": 3378490, "new_deaths": 11463, "total_deaths": 84758, "new_vaccinations": 0, "total_vaccinations": 0}, {"location": "Mexico", "continent": "North America", "date": "2021-02-21", "population": 128000000, "new_cases": 442127, "total_cases": 3820617, "new_deaths": 7496, "total_deaths": 92254, "new_vaccinations": 0, "total_vaccinations": 0}, {"location": "Mexico", "continent": "North America", "date": "2021-02-28", "population": 128000000, "new_cases": 436702, "total_cases": 4257319, "new_deaths": 11569, "total_deaths": 103823, "new_vaccinations": 0, "total_vaccinations": 0}, {"location": "Mexico", "continent": "North America", "date": "2021-03-07", "population": 128000000, "new_cases": 392688, "total_cases": 4650007, "new_deaths": 7934, "total_deaths": 111757, "new_vaccinations": 0, "total_vaccinations": 0}, {"location": "Mexico", "continent": "North America", "date": "2021-03-14", "population": 128000000, "new_cases": 414097, "total_cases": 5064104, "new_deaths": 6800, "total_deaths": 118557, "new_vaccinations": 2955947, "total_vaccinations": 2955947}, {"location": "Mexico", "continent": "North America", "date": "2021-03-21", "population": 128000000, "new_cases": 284487, "total_cases": 5348591, "new_deaths": 6246, "total_deaths": 124803, "new_vaccinations": 4069294, "total_vaccinations": 7025241}, {"location": "Mexico", "continent": "North America", "date": "2021-03-28", "population": 128000000, "new_cases": 270653, "total_cases": 5619244, "new_deaths": 6773, "total_deaths": 131576, "new_vaccinations": 3038865, "total_vaccinations": 10064106}, {"location": "Mexico", "continent": "North America", "date": "2021-04-04", "population": 128000000, "new_cases": 196962, "total_cases": 5816206, "new_deaths": 4848, "total_deaths": 136424, "new_vaccinations": 2521145, "total_vaccinations": 12585251}, {"location": "Mexico", "continent": "North America", "date": "2021-04-11", "population": 128000000, "new_cases": 166658, "total_cases": 5982864, "new_deaths": 4319, "total_deaths": 140743, "new_vaccinations": 4816863, "total_vaccinations": 17402114}, {"location": "Mexico", "continent": "North America", "date": "2021-04-18", "population": 128000000, "new_cases": 141924, "total_cases": 6124788, "new_deaths": 3413, "total_deaths": 144156, "new_vaccinations": 1975979, "total_vaccinations": 19378093}, {"location": "Mexico", "continent": "North America", "date": "2021-04-25", "population": 128000000, "new_cases": 185134, "total_cases": 6309922, "new_deaths": 3739, "total_deaths": 147895, "new_vaccinations": 5034206, "total_vaccinations": 24412299}, {"location": "Mexico", "continent": "North America", "date": "2021-05-02", "population": 128000000, "new_cases": 139291, "total_cases": 6449213, "new_deaths": 2820, "total_deaths": 150715, "new_vaccinations": 5162794, "total_vaccinations": 29575093}, {"location": "Mexico", "continent": "North America", "date": "2021-05-09", "population": 128000000, "new_cases": 136476, "total_cases": 6585689, "new_deaths": 2931, "total_deaths": 153646, "new_vaccinations": 2957654, "total_vaccinations": 32532747}, {"location": "Mexico", "continent": "North America", "date": "2021-05-16", "population": 128000000, "new_cases": 166849, "total_cases": 6752538, "new_deaths": 2651, "total_deaths": 156297, "new_vaccinations": 4579719, "total_vaccinations": 37112466}, {"location": "Mexico", "continent": "North America", "date": "2021-05-23", "population": 128000000, "new_cases": 129713, "total_cases": 6882251, "new_deaths": 3761, "total_deaths": 160058, "new_vaccinations": 4401611, "total_vaccinations": 41514077}, {"location": "Mexico", "continent": "North America", "date": "2021-05-30", "population": 128000000, "new_cases": 413598, "total_cases": 7295849, "new_deaths": 11223, "total_deaths": 171281, "new_vaccinations": 4589365, "total_vaccinations": 46103442}, {"location": "Mexico", "continent": "North America", "date": "2021-06-06", "population": 128000000, "new_cases": 429821, "total_cases": 7725670, "new_deaths": 8221, "total_deaths": 179502, "new_vaccinations": 4482943, "total_vaccinations": 50586385}, {"location": "Mexico", "continent": "North America", "date": "2021-06-13", "population": 128000000, "new_cases": 228208, "total_cases": 7953878, "new_deaths": 4437, "total_deaths": 183939, "new_vaccinations": 4323330, "total_vaccinations": 54909715}, {"location": "Mexico", "continent": "North America", "date": "2021-06-20", "population": 128000000, "new_cases": 488046, "total_cases": 8441924, "new_deaths": 8626, "total_deaths": 192565, "new_vaccinations": 2056215, "total_vaccinations": 56965930}, {"location": "Mexico", "continent": "North America", "date": "2021-06-27", "population": 128000000, "new_cases": 332698, "total_cases": 8774622, "new_deaths": 9252, "total_deaths": 201817, "new_vaccinations": 1836534, "total_vaccinations": 58802464}, {"location": "Australia", "continent": "Oceania", "date": "2021-01-03", "population": 25000000, "new_cases": 85910, "total_cases": 113991, "new_deaths": 992, "total_deaths": 1134, "new_vaccinations": 0, "total_vaccinations": 0}, {"location": "Australia", "continent": "Oceania", "date": "2021-01-10", "population": 25000000, "new_cases": 59880, "total_cases": 173871, "new_deaths": 590, "total_deaths": 1724, "new_vaccinations": 0, "total_vaccinations": 0}, {"location": "Australia", "continent": "Oceania", "date": "2021-01-17", "population": 25000000, "new_cases": 99219, "total_cases": 273090, "new_deaths": 1651, "total_deaths": 3375, "new_vaccinations": 0, "total_vaccinations": 0}, {"location": "Australia", "continent": "Oceania", "date": "2021-01-24", "population": 25000000, "new_cases": 91322, "total_cases": 364412, "new_deaths": 1394, "total_deaths": 4769, "new_vaccinations": 0, "total_vaccinations": 0}, {"location": "Australia", "continent": "Oceania", "date": "2021-01-31", "population": 25000000, "new_cases": 58531, "total_cases": 422943, "new_deaths": 868, "total_deaths": 5637, "new_vaccinations": 0, "total_vaccinations": 0}, {"location": "Australia", "continent": "Oceania", "date": "2021-02-07", "population": 25000000, "new_cases": 86880, "total_cases": 509823, "new_deaths": 1230, "total_deaths": 6867, "new_vaccinations": 0, "total_vaccinations": 0}, {"location": "Australia", "continent": "Oceania", "date": "2021-02-14", "population": 25000000, "new_cases": 93144, "total_cases": 602967, "new_deaths": 1227, "total_deaths": 8094, "new_vaccinations": 244007, "total_vaccinations": 244007}, {"location": "Australia", "continent": "Oceania", "date": "2021-02-21", "population": 25000000, "new_cases": 63521, "total_cases": 666488, "new_deaths": 603, "total_deaths": 8697, "new_vaccinations": 359038, "total_vaccinations": 603045}, {"location": "Australia", "continent": "Oceania", "date": "2021-02-28", "population": 25000000, "new_cases": 51849, "total_cases": 718337, "new_deaths": 605, "total_deaths": 9302, "new_vaccinations": 470630, "total_vaccinations": 1073675}, {"location": "Australia", "continent": "Oceania", "date": "2021-03-07", "population": 25000000, "new_cases": 70555, "total_cases": 788892, "new_deaths": 878, "total_deaths": 10180, "new_vaccinations": 462775, "total_vaccinations": 1536450}, {"location": "Australia", "continent": "Oceania", "date": "2021-03-14", "population": 25000000, "new_cases": 36251, "total_cases": 825143, "new_deaths": 493, "total_deaths": 10673, "new_vaccinations": 474393, "total_vaccinations": 2010843}, {"location": "Australia", "continent": "Oceania", "date": "2021-03-21", "population": 25000000, "new_cases": 41162, "total_cases": 866305, "new_deaths": 592, "total_deaths": 11265, "new_vaccinations": 475049, "total_vaccinations": 2485892}, {"location": "Australia", "continent": "Oceania", "date": "2021-03-28", "population": 25000000, "new_cases": 36305, "total_cases": 902610, "new_deaths": 318, "total_deaths": 11583, "new_vaccinations": 618355, "total_vaccinations": 3104247}, {"location": "Australia", "continent": "Oceania", "date": "2021-04-04", "population": 25000000, "new_cases": 35836, "total_cases": 938446, "new_deaths": 466, "total_deaths": 12049, "new_vaccinations": 367330, "total_vaccinations": 3471577}, {"location": "Australia", "continent": "Oceania", "date": "2021-04-11", "population": 25000000, "new_cases": 37479, "total_cases": 975925, "new_deaths": 538, "total_deaths": 12587, "new_vaccinations": 429973, "total_vaccinations": 3901550}, {"location": "Australia", "continent": "Oceania", "date": "2021-04-18", "population": 25000000, "new_cases": 24681, "total_cases": 1000606, "new_deaths": 393, "total_deaths": 12980, "new_vaccinations": 477398, "total_vaccinations": 4378948}, {"location": "Australia", "continent": "Oceania", "date": "2021-04-25", "population": 25000000, "new_cases": 21272, "total_cases": 1021878, "new_deaths": 349, "total_deaths": 13329, "new_vaccinations": 322313, "total_vaccinations": 4701261}, {"location": "Australia", "continent": "Oceania", "date": "2021-05-02", "population": 25000000, "new_cases": 16971, "total_cases": 1038849, "new_deaths": 207, "total_deaths": 13536, "new_vaccinations": 304279, "total_vaccinations": 5005540}, {"location": "Australia", "continent": "Oceania", "date": "2021-05-09", "population": 25000000, "new_cases": 25781, "total_cases": 1064630, "new_deaths": 298, "total_deaths": 13834, "new_vaccinations": 579404, "total_vaccinations": 5584944}, {"location": "Australia", "continent": "Oceania", "date": "2021-05-16", "population": 25000000, "new_cases": 19354, "total_cases": 1083984, "new_deaths": 208, "total_deaths": 14042, "new_vaccinations": 606897, "total_vaccinations": 6191841}, {"location": "Australia", "continent": "Oceania", "date": "2021-05-23", "population": 25000000, "new_cases": 47193, "total_cases": 1131177, "new_deaths": 435, "total_deaths": 14477, "new_vaccinations": 294355, "total_vaccinations": 6486196}, {"location": "Australia", "continent": "Oceania", "date": "2021-05-30", "population": 25000000, "new_cases": 48571, "total_cases": 1179748, "new_deaths": 431, "total_deaths": 14908, "new_vaccinations": 344538, "total_vaccinations": 6830734}, {"location": "Australia", "continent": "Oceania", "date": "2021-06-06", "population": 25000000, "new_cases": 64722, "total_cases": 1244470, "new_deaths": 660, "total_deaths": 15568, "new_vaccinations": 549692, "total_vaccinations": 7380426}, {"location": "Australia", "continent": "Oceania", "date": "2021-06-13", "population": 25000000, "new_cases": 52390, "total_cases": 1296860, "new_deaths": 803, "total_deaths": 16371, "new_vaccinations": 302992, "total_vaccinations": 7683418}, {"location": "Australia", "continent": "Oceania", "date": "2021-06-20", "population": 25000000, "new_cases": 74039, "total_cases": 1370899, "new_deaths": 999, "total_deaths": 17370, "new_vaccinations": 321293, "total_vaccinations": 8004711}, {"location": "Australia", "continent": "Oceania", "date": "2021-06-27", "population": 25000000, "new_cases": 94625, "total_cases": 1465524, "new_deaths": 1233, "total_deaths": 18603, "new_vaccinations": 536753, "total_vaccinations": 8541464}];
+
+const COLORS = ['#4C72B0','#DD8452','#55A868','#C44E52','#8172B3','#937860','#64B5CD','#CCB974','#B07AA1','#76B7B2'];
+
+function formatValue(value, format='number') {
+    if (value === null || value === undefined || isNaN(value)) return '-';
+    switch (format) {
+        case 'percent': return value.toFixed(2) + '%';
+        case 'number':
+            if (Math.abs(value) >= 1e9) return (value/1e9).toFixed(2) + 'B';
+            if (Math.abs(value) >= 1e6) return (value/1e6).toFixed(2) + 'M';
+            if (Math.abs(value) >= 1e3) return (value/1e3).toFixed(1) + 'K';
+            return Math.round(value).toLocaleString();
+        default: return value.toString();
+    }
+}
+
+class Dashboard {
+    constructor(data) {
+        this.rawData = data;
+        this.filteredData = data;
+        this.charts = {};
+        this.init();
+    }
+
+    init() {
+        this.setupFilters();
+        this.render();
+    }
+
+    setupFilters() {
+        const continents = [...new Set(this.rawData.map(d => d.continent))].sort();
+        const contSel = document.getElementById('filter-continent');
+        continents.forEach(c => {
+            const opt = document.createElement('option');
+            opt.value = c; opt.textContent = c;
+            contSel.appendChild(opt);
+        });
+        this.populateLocationFilter('all');
+
+        const dates = [...new Set(this.rawData.map(d => d.date))].sort();
+        document.getElementById('filter-date-start').value = dates[0];
+        document.getElementById('filter-date-end').value = dates[dates.length - 1];
+        document.getElementById('filter-date-start').min = dates[0];
+        document.getElementById('filter-date-start').max = dates[dates.length - 1];
+        document.getElementById('filter-date-end').min = dates[0];
+        document.getElementById('filter-date-end').max = dates[dates.length - 1];
+    }
+
+    populateLocationFilter(continent) {
+        const locSel = document.getElementById('filter-location');
+        locSel.innerHTML = '<option value="all">All Countries</option>';
+        let pool = this.rawData;
+        if (continent !== 'all') pool = pool.filter(d => d.continent === continent);
+        const locations = [...new Set(pool.map(d => d.location))].sort();
+        locations.forEach(l => {
+            const opt = document.createElement('option');
+            opt.value = l; opt.textContent = l;
+            locSel.appendChild(opt);
+        });
+    }
+
+    onContinentChange() {
+        const continent = document.getElementById('filter-continent').value;
+        this.populateLocationFilter(continent);
+        this.applyFilters();
+    }
+
+    applyFilters() {
+        const continent = document.getElementById('filter-continent').value;
+        const location = document.getElementById('filter-location').value;
+        const startDate = document.getElementById('filter-date-start').value;
+        const endDate = document.getElementById('filter-date-end').value;
+
+        this.filteredData = this.rawData.filter(row => {
+            if (continent !== 'all' && row.continent !== continent) return false;
+            if (location !== 'all' && row.location !== location) return false;
+            if (startDate && row.date < startDate) return false;
+            if (endDate && row.date > endDate) return false;
+            return true;
+        });
+        this.render();
+    }
+
+    render() {
+        this.renderKPIs();
+        this.renderCharts();
+        this.renderTable();
+    }
+
+    renderKPIs() {
+        const d = this.filteredData;
+        const dates = [...new Set(d.map(r => r.date))].sort();
+        const lastDate = dates[dates.length - 1];
+        document.getElementById('data-date').textContent = lastDate || '-';
+
+        // totals as of latest date per location, summed
+        const locations = [...new Set(d.map(r => r.location))];
+        let totalCases = 0, totalDeaths = 0, totalVax = 0, totalPop = 0;
+        locations.forEach(loc => {
+            const rows = d.filter(r => r.location === loc).sort((a,b) => a.date.localeCompare(b.date));
+            const latest = rows[rows.length - 1];
+            if (latest) {
+                totalCases += latest.total_cases;
+                totalDeaths += latest.total_deaths;
+                totalVax += latest.total_vaccinations;
+                totalPop += latest.population;
+            }
+        });
+
+        const deathRate = totalCases ? (totalDeaths / totalCases) * 100 : 0;
+        const infectedPct = totalPop ? (totalCases / totalPop) * 100 : 0;
+        const vaxPct = totalPop ? (totalVax / totalPop) * 100 : 0;
+
+        const newCasesLatestWeek = d.filter(r => r.date === lastDate).reduce((s,r) => s + r.new_cases, 0);
+        const prevDate = dates[dates.length - 2];
+        const newCasesPrevWeek = prevDate ? d.filter(r => r.date === prevDate).reduce((s,r) => s + r.new_cases, 0) : null;
+
+        document.getElementById('kpi-cases').textContent = formatValue(totalCases);
+        document.getElementById('kpi-deaths').textContent = formatValue(totalDeaths);
+        document.getElementById('kpi-deathrate').textContent = deathRate.toFixed(2) + '%';
+        document.getElementById('kpi-infected-pct').textContent = infectedPct.toFixed(2) + '%';
+        document.getElementById('kpi-vax').textContent = formatValue(totalVax);
+        document.getElementById('kpi-vax-pct').textContent = vaxPct.toFixed(2) + '%';
+        document.getElementById('kpi-new-cases').textContent = formatValue(newCasesLatestWeek);
+        document.getElementById('kpi-countries').textContent = locations.length;
+
+        const newCasesSub = document.getElementById('kpi-new-cases-sub');
+        if (newCasesPrevWeek !== null && newCasesPrevWeek > 0) {
+            const pct = ((newCasesLatestWeek - newCasesPrevWeek) / newCasesPrevWeek) * 100;
+            newCasesSub.textContent = (pct >= 0 ? '+' : '') + pct.toFixed(1) + '% vs prior week';
+            newCasesSub.className = 'kpi-change ' + (pct >= 0 ? 'negative' : 'positive');
+        } else {
+            newCasesSub.textContent = 'vs prior week: n/a';
+            newCasesSub.className = 'kpi-change neutral';
+        }
+    }
+
+    renderCharts() {
+        const d = this.filteredData;
+        const dates = [...new Set(d.map(r => r.date))].sort();
+
+        // Trend: aggregate new_cases per week across filtered locations
+        const trendData = dates.map(dt => d.filter(r => r.date === dt).reduce((s,r) => s + r.new_cases, 0));
+
+        if (this.charts.trend) this.charts.trend.destroy();
+        this.charts.trend = new Chart(document.getElementById('chart-trend').getContext('2d'), {
+            type: 'line',
+            data: {
+                labels: dates,
+                datasets: [{
+                    label: 'New Cases',
+                    data: trendData,
+                    borderColor: COLORS[0],
+                    backgroundColor: COLORS[0] + '20',
+                    borderWidth: 2,
+                    fill: true,
+                    tension: 0.3,
+                    pointRadius: 2,
+                    pointHoverRadius: 5,
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: {
+                    legend: { display: false },
+                    tooltip: { callbacks: { label: c => 'New cases: ' + formatValue(c.parsed.y) } }
+                },
+                scales: {
+                    x: { grid: { display: false }, ticks: { maxTicksLimit: 8 } },
+                    y: { beginAtZero: true, ticks: { callback: v => formatValue(v) } }
+                }
+            }
+        });
+
+        // Continent doughnut: total cases share (latest per location)
+        const locations = [...new Set(d.map(r => r.location))];
+        const contTotals = {};
+        locations.forEach(loc => {
+            const rows = d.filter(r => r.location === loc).sort((a,b) => a.date.localeCompare(b.date));
+            const latest = rows[rows.length - 1];
+            if (!latest) return;
+            contTotals[latest.continent] = (contTotals[latest.continent] || 0) + latest.total_cases;
+        });
+        const contLabels = Object.keys(contTotals);
+        const contValues = Object.values(contTotals);
+
+        if (this.charts.continent) this.charts.continent.destroy();
+        this.charts.continent = new Chart(document.getElementById('chart-continent').getContext('2d'), {
+            type: 'doughnut',
+            data: {
+                labels: contLabels,
+                datasets: [{ data: contValues, backgroundColor: COLORS.map(c => c + 'CC'), borderColor: '#fff', borderWidth: 2 }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                cutout: '60%',
+                plugins: {
+                    legend: { position: 'right', labels: { usePointStyle: true, padding: 12, boxWidth: 8, font: { size: 11 } } },
+                    tooltip: {
+                        callbacks: {
+                            label: c => {
+                                const total = c.dataset.data.reduce((a,b) => a+b, 0);
+                                const pct = total ? ((c.parsed/total)*100).toFixed(1) : 0;
+                                return c.label + ': ' + formatValue(c.parsed) + ' (' + pct + '%)';
+                            }
+                        }
+                    }
+                }
+            }
+        });
+
+        // Deaths by country bar chart
+        const countryDeaths = locations.map(loc => {
+            const rows = d.filter(r => r.location === loc).sort((a,b) => a.date.localeCompare(b.date));
+            const latest = rows[rows.length - 1];
+            return { location: loc, deaths: latest ? latest.total_deaths : 0 };
+        }).sort((a,b) => b.deaths - a.deaths);
+
+        if (this.charts.deaths) this.charts.deaths.destroy();
+        this.charts.deaths = new Chart(document.getElementById('chart-deaths').getContext('2d'), {
+            type: 'bar',
+            data: {
+                labels: countryDeaths.map(c => c.location),
+                datasets: [{ data: countryDeaths.map(c => c.deaths), backgroundColor: COLORS.map(c => c + 'CC'), borderRadius: 4 }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                indexAxis: countryDeaths.length > 6 ? 'y' : 'x',
+                plugins: {
+                    legend: { display: false },
+                    tooltip: { callbacks: { label: c => formatValue(c.parsed.x ?? c.parsed.y) } }
+                },
+                scales: {
+                    x: { beginAtZero: true, ticks: { callback: v => formatValue(v) } },
+                    y: { beginAtZero: true, ticks: { callback: v => typeof v === 'number' ? formatValue(v) : v } }
+                }
+            }
+        });
+
+        // Vaccination % bar chart
+        const countryVax = locations.map(loc => {
+            const rows = d.filter(r => r.location === loc).sort((a,b) => a.date.localeCompare(b.date));
+            const latest = rows[rows.length - 1];
+            const pct = latest && latest.population ? (latest.total_vaccinations / latest.population) * 100 : 0;
+            return { location: loc, pct };
+        }).sort((a,b) => b.pct - a.pct);
+
+        if (this.charts.vax) this.charts.vax.destroy();
+        this.charts.vax = new Chart(document.getElementById('chart-vax').getContext('2d'), {
+            type: 'bar',
+            data: {
+                labels: countryVax.map(c => c.location),
+                datasets: [{ data: countryVax.map(c => c.pct), backgroundColor: COLORS.map(c => c + 'CC'), borderRadius: 4 }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                indexAxis: countryVax.length > 6 ? 'y' : 'x',
+                plugins: {
+                    legend: { display: false },
+                    tooltip: { callbacks: { label: c => (c.parsed.x ?? c.parsed.y).toFixed(2) + '%' } }
+                },
+                scales: {
+                    x: { beginAtZero: true, ticks: { callback: v => v + '%' } },
+                    y: { beginAtZero: true, ticks: { callback: v => typeof v === 'number' ? v + '%' : v } }
+                }
+            }
+        });
+    }
+
+    renderTable() {
+        const d = this.filteredData;
+        const locations = [...new Set(d.map(r => r.location))];
+        const rows = locations.map(loc => {
+            const locRows = d.filter(r => r.location === loc).sort((a,b) => a.date.localeCompare(b.date));
+            const latest = locRows[locRows.length - 1];
+            if (!latest) return null;
+            const deathRate = latest.total_cases ? (latest.total_deaths / latest.total_cases) * 100 : 0;
+            const vaxPct = latest.population ? (latest.total_vaccinations / latest.population) * 100 : 0;
+            return {
+                location: latest.location,
+                continent: latest.continent,
+                total_cases: latest.total_cases,
+                total_deaths: latest.total_deaths,
+                death_rate: deathRate,
+                total_vaccinations: latest.total_vaccinations,
+                vax_pct: vaxPct,
+            };
+        }).filter(Boolean);
+
+        const columns = [
+            { field: 'location', label: 'Country' },
+            { field: 'continent', label: 'Continent' },
+            { field: 'total_cases', label: 'Total Cases', format: 'number' },
+            { field: 'total_deaths', label: 'Total Deaths', format: 'number' },
+            { field: 'death_rate', label: 'Death Rate', format: 'percent' },
+            { field: 'total_vaccinations', label: 'Total Vax', format: 'number' },
+            { field: 'vax_pct', label: '% Vaccinated', format: 'percent' },
+        ];
+
+        const container = document.getElementById('table-container');
+        let sortCol = 'total_cases';
+        let sortDir = 'desc';
+
+        function draw(sortedRows) {
+            let html = '<table class="data-table"><thead><tr>';
+            columns.forEach(col => {
+                const arrow = sortCol === col.field ? (sortDir === 'asc' ? ' ▲' : ' ▼') : '';
+                html += `<th onclick="dashboard.sortTable('${col.field}')">${col.label}${arrow}</th>`;
+            });
+            html += '</tr></thead><tbody>';
+            sortedRows.forEach(row => {
+                html += '<tr>';
+                columns.forEach(col => {
+                    const val = col.format ? formatValue(row[col.field], col.format) : row[col.field];
+                    html += `<td>${val}</td>`;
+                });
+                html += '</tr>';
+            });
+            html += '</tbody></table>';
+            container.innerHTML = html;
+        }
+
+        this._tableRows = rows;
+        this._tableColumns = columns;
+        this._tableSortState = { sortCol, sortDir };
+        draw([...rows].sort((a,b) => b.total_cases - a.total_cases));
+    }
+
+    sortTable(field) {
+        let { sortCol, sortDir } = this._tableSortState;
+        if (sortCol === field) sortDir = sortDir === 'asc' ? 'desc' : 'asc';
+        else { sortCol = field; sortDir = 'desc'; }
+        this._tableSortState = { sortCol, sortDir };
+
+        const sorted = [...this._tableRows].sort((a,b) => {
+            const av = a[field], bv = b[field];
+            const cmp = av < bv ? -1 : av > bv ? 1 : 0;
+            return sortDir === 'asc' ? cmp : -cmp;
+        });
+
+        let html = '<table class="data-table"><thead><tr>';
+        this._tableColumns.forEach(col => {
+            const arrow = sortCol === col.field ? (sortDir === 'asc' ? ' ▲' : ' ▼') : '';
+            html += `<th onclick="dashboard.sortTable('${col.field}')">${col.label}${arrow}</th>`;
+        });
+        html += '</tr></thead><tbody>';
+        sorted.forEach(row => {
+            html += '<tr>';
+            this._tableColumns.forEach(col => {
+                const val = col.format ? formatValue(row[col.field], col.format) : row[col.field];
+                html += `<td>${val}</td>`;
+            });
+            html += '</tr>';
+        });
+        html += '</tbody></table>';
+        document.getElementById('table-container').innerHTML = html;
+    }
+}
+
+const dashboard = new Dashboard(DATA);
+</script>
+</body>
+</html>
